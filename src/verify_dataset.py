@@ -4,7 +4,21 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+#  IMPORTANT: adjust if needed
 DATA_PATH = "../data"
+
+print(" DATA PATH:", os.path.abspath(DATA_PATH))
+
+
+
+# Helper: count total images
+
+def count_images():
+    count = 0
+    for root, _, files in os.walk(DATA_PATH):
+        count += len(files)
+    return count
+
 
 
 # 1) Structure Check
@@ -21,7 +35,7 @@ def check_structure():
         for cls in classes:
             path = os.path.join(DATA_PATH, split, cls)
             if os.path.exists(path):
-                print(f" OK: {path}")
+                print(f" {path}")
             else:
                 print(f" Missing: {path}")
                 ok = False
@@ -36,30 +50,34 @@ def check_corrupted():
     print("\n Checking corrupted images...\n")
 
     corrupted = []
-
     files = []
+
     for root, _, f in os.walk(DATA_PATH):
         for file in f:
             files.append(os.path.join(root, file))
 
+    if len(files) == 0:
+        print(" No images found! Check DATA_PATH.")
+        return []
+
     for path in tqdm(files, desc="Scanning"):
         try:
             img = Image.open(path)
-            img.verify()
+            img.load()
         except:
             corrupted.append(path)
 
-    print(f" Corrupted images found: {len(corrupted)}")
+    print(f" Corrupted images: {len(corrupted)}")
     return corrupted
 
 
 # 3) Blur Detection
 
-def check_blur(threshold=50):
+def check_blur():
     print("\n Checking blur level...\n")
 
-    blurry = []
-    sharp_scores = []
+    scores = []
+    paths = []
 
     for root, _, files in os.walk(DATA_PATH):
         for file in files:
@@ -70,13 +88,19 @@ def check_blur(threshold=50):
                 continue
 
             score = cv2.Laplacian(img, cv2.CV_64F).var()
-            sharp_scores.append(score)
+            scores.append(score)
+            paths.append(path)
 
-            if score < threshold:
-                blurry.append(path)
+    if len(scores) == 0:
+        print(" No images found! Cannot compute blur.")
+        return []
 
-    print(f" Blurry images: {len(blurry)}")
-    print(f" Avg sharpness: {np.mean(sharp_scores):.2f}")
+    threshold = np.percentile(scores, 20)
+
+    blurry = [p for p, s in zip(paths, scores) if s < threshold]
+
+    print(f"Blurry images: {len(blurry)}")
+    print(f"Threshold used: {threshold:.2f}")
 
     return blurry
 
@@ -108,48 +132,64 @@ def check_brightness():
             elif mean > 200:
                 bright += 1
 
+    if total == 0:
+        print(" No images found! Cannot compute brightness.")
+        return 0, 0
+
     print(f" Dark images: {dark}")
     print(f" Overexposed images: {bright}")
 
     return dark, bright
 
 
-
-# 5) Dataset Counts per Folder
+# 5) Dataset Balance
 
 def check_balance():
-    print("\n Dataset Counts per Folder...\n")
+    print("\n Dataset Balance...\n")
 
     for split in ["Train", "Validation", "Test"]:
 
-        with_mask_path = f"{DATA_PATH}/{split}/WithMask"
-        without_mask_path = f"{DATA_PATH}/{split}/WithoutMask"
+        with_mask_path = os.path.join(DATA_PATH, split, "WithMask")
+        without_mask_path = os.path.join(DATA_PATH, split, "WithoutMask")
+
+        if not os.path.exists(with_mask_path) or not os.path.exists(without_mask_path):
+            print(f" Skipping {split} (missing folders)")
+            continue
 
         with_mask = len(os.listdir(with_mask_path))
         without_mask = len(os.listdir(without_mask_path))
 
         total = with_mask + without_mask
-        ratio = with_mask / total
+        ratio = with_mask / total if total > 0 else 0
 
-        print(f"======================")
-        print(f"{split} Folder")
-        print(f"======================")
+        print(f"--- {split} ---")
         print(f"WithMask     : {with_mask}")
         print(f"WithoutMask  : {without_mask}")
         print(f"Total        : {total}")
-        print(f"Balance ratio: {ratio:.3f}\n")
+        print(f"Balance      : {ratio:.3f}\n")
 
 
 
 # 6) Final Report
-def final_report(corrupted, blurry, dark):
+
+def final_report(corrupted, blurry, dark, bright):
     print("\n==============================")
     print("FINAL DATASET QUALITY REPORT")
     print("==============================")
 
-    print(f" Corrupted images: {len(corrupted)}")
-    print(f" Blurry images: {len(blurry)}")
-    print(f" Dark images: {dark}")
+    total_images = count_images()
+
+    print(f"Total images: {total_images}")
+    print(f"Corrupted   : {len(corrupted)}")
+    print(f"Blurry      : {len(blurry)}")
+    print(f"Dark        : {dark}")
+    print(f"Overexposed : {bright}")
+
+    if total_images == 0:
+        print("\n Dataset not found. Fix DATA_PATH first.")
+        return
+
+    blur_ratio = len(blurry) / total_images
 
     print("\n Status:")
 
@@ -158,23 +198,25 @@ def final_report(corrupted, blurry, dark):
     else:
         print(" Corrupted files exist")
 
-    total_images = 11751  # or compute dynamically
-    blur_ratio = len(blurry) / total_images
-
     if blur_ratio < 0.05:
         print(" Blur level acceptable")
     else:
         print(" High blur detected")
+
 
 # -----------------------------
 # MAIN
 # -----------------------------
 if __name__ == "__main__":
 
-    check_structure()
+    structure_ok = check_structure()
+
+    if not structure_ok:
+        print("\n Dataset structure is incorrect. Fix paths before continuing.\n")
+
     corrupted = check_corrupted()
     blurry = check_blur()
     dark, bright = check_brightness()
     check_balance()
 
-    final_report(corrupted, blurry, dark)
+    final_report(corrupted, blurry, dark, bright)
