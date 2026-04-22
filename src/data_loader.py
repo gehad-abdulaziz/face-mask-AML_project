@@ -1,31 +1,25 @@
 import os
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
+from augmentation import train_transform , test_val_transform
 
 DATA_PATH = "../data"
-
-# Basic transform (ONLY resize + tensor)
-basic_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor()
-])
-
 
 def get_dataloaders(batch_size=32):
 
     train_dataset = datasets.ImageFolder(
         root=os.path.join(DATA_PATH, "Train"),
-        transform=basic_transform
+        transform=train_transform
     )
 
     val_dataset = datasets.ImageFolder(
         root=os.path.join(DATA_PATH, "Validation"),
-        transform=basic_transform
+        transform=test_val_transform
     )
 
     test_dataset = datasets.ImageFolder(
         root=os.path.join(DATA_PATH, "Test"),
-        transform=basic_transform
+        transform=test_val_transform
     )
 
     train_loader = DataLoader(
