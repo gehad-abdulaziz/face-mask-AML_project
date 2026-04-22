@@ -84,6 +84,147 @@ face-mask-AML_project/
 - **Export Format:** `.pth`
 
 ---
+# Data Augmentation Strategy
+### Face Mask Detection — Role 3: Augmentation Designer
+
+---
+
+## The Problem: Real-World Data Challenges
+
+Rather than relying on generic augmentation techniques, we designed a **data-driven augmentation pipeline** based on insights obtained from the Exploratory Data Analysis (EDA).
+
+Our dataset (~11,751 images) contains several real-world imperfections:
+
+| Issue | Count | Percentage |
+|-------|-------|------------|
+| Blurry images | 2,350 | ~20% |
+| Overexposed images | 117 | ~1% |
+| Dark images | 48 | ~0.4% |
+| Corrupted images | 0 | 0% |
+| Class balance | 50/50 | Balanced |
+
+> Training the MobileNetV2 model on clean data alone would lead to **overfitting**, making it unreliable in real-world scenarios such as low-quality surveillance cameras or poor lighting conditions.
+
+---
+
+## The Solution: Justification for Each Augmentation
+
+Each augmentation was carefully selected to simulate a specific real-world condition while **preserving essential features** (face and mask):
+
+> **Note on Hyperparameters:**
+> The augmentation parameters listed below (rotation degrees, probability values, jitter ranges)
+> are **initial baseline values**.
+> Final values will be fine-tuned in collaboration with **Role 4 — Model Trainer**
+> based on validation accuracy and training curves.
+
+### 1. `Resize (224x224)`
+- **Why:** Standard input size required for MobileNetV2, ensuring compatibility with pretrained weights.
+
+### 2. `RandomHorizontalFlip (p=0.5)`
+- **Why:** Human faces are generally symmetrical. This simulates people looking in different directions.
+- **Note:** Vertical flipping was deliberately avoided as it produces unrealistic upside-down face samples.
+
+### 3. `RandomRotation (15)`
+- **Why:** Simulates natural head tilt while keeping the face orientation realistic.
+- **Why 15 not 30:** Larger rotations distort facial features and produce unrealistic samples.
+
+### 4. `ColorJitter (brightness=0.2, contrast=0.2, saturation=0.2)`
+- **Why:** Directly addresses the **48 dark images** and **117 overexposed images** found in EDA.
+- Simulates indoor/outdoor lighting variations common in surveillance scenarios.
+
+### 5. `RandomApply([GaussianBlur], p=0.1)`
+- **Why:** Simulates motion blur and low-resolution cameras.
+- **Why p=0.1 (low probability):** ~20% of the dataset is already blurry — a higher probability would overwhelm the model with too many blurry samples.
+
+### 6. `RandomPerspective (distortion_scale=0.2, p=0.2)`
+- **Why:** Simulates different camera angles such as tilted or overhead surveillance cameras.
+- **Why p=0.2 (low probability):** Combined with rotation, higher values would cause over-distortion.
+### 7. `Normalize (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`
+- **Why:** MobileNetV2 was pretrained on ImageNet — these are the exact
+  mean and std values computed from the ImageNet dataset.
+- Normalizing with the same values ensures the model receives input
+  in the same distribution it was trained on.
+- **Applied on both train and val/test** — this is not augmentation,
+  it is a required preprocessing step.
+- Skipping this step would cause the pretrained weights to behave
+  unpredictably and degrade accuracy significantly.
+---
+
+## Implementation
+
+```python
+import torchvision.transforms as transforms
+
+# Training Pipeline — WITH Augmentation
+train_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(15),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    transforms.RandomApply([
+        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
+    ], p=0.1),
+    transforms.RandomPerspective(distortion_scale=0.2, p=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
+
+# Validation & Test Pipeline — WITHOUT Augmentation
+test_val_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
+```
+
+> **Why no augmentation on Validation/Test?**
+> We evaluate the model on clean, unmodified images to get a true measure of real-world performance.
+
+---
+
+## Visual Results
+
+### Before Augmentation
+![Before Augmentation](reports/before_augmentation.png)
+
+### After Augmentation
+![After Augmentation](reports/after_augmentation.png)
+
+> The augmented images show realistic variations in **rotation**, **perspective**, **brightness**, and **blur** — exactly the conditions the model will encounter in real-world deployment.
+
+---
+
+## Key Insight
+
+All augmentations are applied **on-the-fly during training**, meaning the model sees a slightly different version of each image in every epoch.
+
+```
+Epoch 1 -> Original image
+Epoch 2 -> Same image + slight rotation
+Epoch 3 -> Same image + horizontal flip + color change
+...
+```
+
+This significantly **improves generalization** and **reduces overfitting** without requiring additional data collection.
+
+---
+
+## Summary
+
+| Challenge | Augmentation Applied |
+|-----------|---------------------|
+| Blur (~20% of data) | `GaussianBlur (p=0.1)` |
+| Dark images | `ColorJitter (brightness=0.2)` |
+| Overexposed images | `ColorJitter (contrast=0.2)` |
+| Camera angle variation | `RandomPerspective (p=0.2)` |
+| Face orientation | `RandomHorizontalFlip (p=0.5)` |
+| Head tilt | `RandomRotation (15)` |
+
+This augmentation strategy enhances the model's robustness to real-world challenges while preserving the critical features needed for **accurate face mask detection**.
+
+---
 
 ## API
 
