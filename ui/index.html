@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mask Detector Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        body { background: radial-gradient(circle at top right, #1e293b, #020617); min-height: 100vh; color: white; font-family: 'Inter', sans-serif; }
+        .pulse-green { animation: pulse 2s infinite; shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent italic">MASK-EYE AI</h1>
+                <p class="text-gray-500 font-mono text-sm tracking-widest">ADVANCED ML TEAM 10 // DEPLOYED</p>
+            </div>
+            <div class="flex gap-3">
+                <div class="glass px-4 py-2 rounded-full flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+                    <span class="text-xs font-bold">SYSTEM ACTIVE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="glass rounded-3xl p-6 overflow-hidden relative">
+                    <div class="flex gap-4 mb-6">
+                        <button id="uploadTab" onclick="switchMode('upload')" class="flex-1 bg-cyan-600 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-500">
+                            <i class="fas fa-upload mr-2"></i> Upload Image
+                        </button>
+                        <button id="cameraTab" onclick="switchMode('camera')" class="flex-1 bg-gray-800 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-600">
+                            <i class="fas fa-video mr-2"></i> Live Camera
+                        </button>
+                    </div>
+
+                    <div id="uploadView" class="border-2 border-dashed border-gray-700 rounded-2xl p-12 text-center hover:border-cyan-500 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-images text-6xl text-gray-600 mb-4"></i>
+                        <p class="text-gray-400">Drag & drop files or browse</p>
+                        <input type="file" id="fileInput" class="hidden" accept="image/*">
+                    </div>
+
+                    <div id="cameraView" class="hidden relative rounded-2xl overflow-hidden bg-black">
+                        <video id="webcam" autoplay playsinline class="w-full h-[400px] object-cover"></video>
+                        <div class="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse">LIVE FEED</div>
+                    </div>
+
+                    <div id="previewContainer" class="hidden mt-6 rounded-2xl overflow-hidden border border-gray-700">
+                        <img id="imagePreview" class="w-full h-[400px] object-cover">
+                    </div>
+                    <canvas id="canvas" class="hidden"></canvas>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <div id="resultCard" class="glass rounded-3xl p-8 border-t-4 border-cyan-500 shadow-xl transition-all duration-500 opacity-30">
+                    <p class="text-gray-500 text-xs font-black tracking-tighter uppercase mb-2">Detection Result</p>
+                    <h2 id="statusText" class="text-5xl font-black mb-2">WAITING...</h2>
+                    <p id="actionText" class="text-gray-400 text-sm italic font-medium">Please provide input feed</p>
+                    
+                    <div class="mt-8">
+                        <div class="flex justify-between text-xs mb-2 font-bold">
+                            <span>CONFIDENCE</span>
+                            <span id="confValue" class="text-cyan-400">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-2 rounded-full">
+                            <div id="confBar" class="bg-gradient-to-r from-cyan-600 to-blue-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass rounded-3xl p-6 space-y-4">
+                    <h3 class="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 italic">ANALYSIS STATS</h3>
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p class="text-gray-500 mb-1">Latency</p>
+                            <p id="statLatency" class="font-mono text-cyan-400">-- ms</p>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p class="text-gray-500 mb-1">Resolution</p>
+                            <p id="statRes" class="font-mono">--</p>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p class="text-gray-500 mb-1">Device</p>
+                            <p id="statDevice" class="font-mono text-xs uppercase">Connecting...</p>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
+                            <p class="text-gray-500 mb-1">Model</p>
+                            <p class="font-mono">MobileNetV2</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        let isLive = false;
+
+        async function switchMode(mode) {
+            document.getElementById('uploadTab').className = mode === 'upload' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
+            document.getElementById('cameraTab').className = mode === 'camera' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
+            
+            if (mode === 'camera') {
+                document.getElementById('uploadView').classList.add('hidden');
+                document.getElementById('cameraView').classList.remove('hidden');
+                document.getElementById('previewContainer').classList.add('hidden');
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    isLive = true;
+                    runLiveInference();
+                } catch (err) { alert("Camera Access Denied"); }
+            } else {
+                location.reload(); // Reset for upload mode
+            }
+        }
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('imagePreview').src = URL.createObjectURL(file);
+            document.getElementById('previewContainer').classList.remove('hidden');
+            document.getElementById('uploadView').classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            performInference(formData);
+        };
+
+        async function runLiveInference() {
+            if (!isLive) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+                await performInference(formData);
+                setTimeout(runLiveInference, 1000); // 1 Frame per second
+            }, 'image/jpeg');
+        }
+
+        async function performInference(formData) {
+            const startTime = performance.now();
+            try {
+                const response = await fetch('/predict', { method: 'POST', body: formData });
+                const data = await response.json();
+                const endTime = performance.now();
+                
+                updateUI(data, Math.round(endTime - startTime));
+            } catch (err) { console.error(err); }
+        }
+
+        function updateUI(data, latency) {
+            const card = document.getElementById('resultCard');
+            const statusEl = document.getElementById('statusText');
+            
+            card.style.opacity = "1";
+            statusEl.innerText = data.class === "WithMask" ? "SECURED" : "WARNING";
+            statusEl.className = `text-5xl font-black mb-2 ${data.status === 'mask_on' ? 'text-green-400' : 'text-red-500'}`;
+            
+            card.style.borderColor = data.status === 'mask_on' ? '#4ade80' : '#ef4444';
+            document.getElementById('actionText').innerText = data.action;
+            document.getElementById('confBar').style.width = (data.confidence * 100) + '%';
+            document.getElementById('confValue').innerText = (data.confidence * 100).toFixed(2) + '%';
+            
+            // Stats Update
+            document.getElementById('statLatency').innerText = latency + " ms";
+            document.getElementById('statRes').innerText = "224x224 (Input)";
+            document.getElementById('statDevice').innerText = "CPU/Container";
+        }
+
+        // Fetch Health Data on Load
+        fetch('/health').then(r => r.json()).then(d => {
+            document.getElementById('statDevice').innerText = d.device;
+        });
+    </script>
+</body>
+</html>
