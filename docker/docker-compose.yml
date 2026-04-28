@@ -1,1 +1,21 @@
+# ─────────────────────────────────────────────
+# Face Mask Detection — Docker Compose
+# Role 7: Deployer — Fatima
+# ─────────────────────────────────────────────
 
+version: "3.9"
+
+services:
+  mask-api:
+    build:
+      context: ..           # project root
+      dockerfile: docker/Dockerfile
+    container_name: face-mask-api
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
