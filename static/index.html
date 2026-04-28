@@ -150,7 +150,32 @@
                 setTimeout(runLiveInference, 1000); // 1 Frame per second
             }, 'image/jpeg');
         }
+        async function sendFrame() {
+            // 1. ارسم فريم الكاميرا على Canvas مخفي
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
 
+            // 2. حول الصورة لـ Blob (ملف)
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
+
+                // 3. ابعت للسيرفر
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                // 4. اعرض النتيجة (Allow/Deny) على الشاشة
+                updateUI(result);
+            }, 'image/jpeg');
+        }
+
+        // شغل الفانكشن دي في تكرار (Loop)
+        setInterval(sendFrame, 200);
         async function performInference(formData) {
             const startTime = performance.now();
             try {
