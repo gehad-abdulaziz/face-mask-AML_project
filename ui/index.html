@@ -1,190 +1,744 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mask Detector Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        body { background: radial-gradient(circle at top right, #1e293b, #020617); min-height: 100vh; color: white; font-family: 'Inter', sans-serif; }
-        .pulse-green { animation: pulse 2s infinite; shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MaskGuard AI — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08090d;
+    --surface: #0f1117;
+    --surface2: #161820;
+    --border: rgba(255,255,255,0.07);
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #00ff88;
+    --red: #ff3b5c;
+    --amber: #ffb020;
+    --text: #f0f2ff;
+    --muted: #6b7280;
+    --card-shadow: 0 0 40px rgba(0,229,255,0.04);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid noise background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* Glow orbs */
+  .orb {
+    position: fixed; border-radius: 50%;
+    filter: blur(120px); pointer-events: none; z-index: 0;
+    opacity: 0.18;
+  }
+  .orb1 { width:500px;height:500px; background:#7c3aed; top:-150px; right:-100px; }
+  .orb2 { width:400px;height:400px; background:#00e5ff; bottom:-100px; left:-80px; }
+
+  /* ─── Layout ─── */
+  .shell {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ─── Sidebar ─── */
+  aside {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    position: sticky; top: 0; height: 100vh;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px; font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; margin-bottom: 24px;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    font-size: 12px; letter-spacing: 0.03em;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--accent); background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.15);
+  }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align:center; }
+
+  .nav-section {
+    font-size: 10px; letter-spacing: 0.12em;
+    color: var(--muted); text-transform: uppercase;
+    padding: 16px 12px 6px;
+  }
+
+  .status-pill {
+    margin-top: auto;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 8px; padding: 10px 14px;
+    font-size: 11px; color: var(--green);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-pill::before {
+    content: ''; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  /* ─── Main ─── */
+  main {
+    display: flex; flex-direction: column;
+    padding: 32px; gap: 24px;
+    max-width: 1100px;
+  }
+
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 26px; font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .page-title span { color: var(--accent); }
+
+  .model-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 16px;
+    font-size: 11px; color: var(--muted);
+  }
+  .model-badge strong { color: var(--text); }
+
+  /* ─── Stats row ─── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: rgba(0,229,255,0.2); }
+  .stat-card::after {
+    content: ''; position: absolute;
+    top:0; left:0; right:0; height:2px;
+  }
+  .stat-card.c1::after { background: var(--accent); }
+  .stat-card.c2::after { background: var(--green); }
+  .stat-card.c3::after { background: var(--red); }
+  .stat-card.c4::after { background: var(--accent2); }
+
+  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .stat-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ─── Two-col grid ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px;
+    box-shadow: var(--card-shadow);
+  }
+
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700; letter-spacing: -0.2px;
+  }
+  .card-tag {
+    font-size: 10px; padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(0,229,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+
+  /* ─── Tab switcher ─── */
+  .tab-switcher {
+    display: flex; gap: 4px;
+    background: var(--surface2); border-radius: 8px; padding: 4px;
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    flex: 1; padding: 8px; border: none; border-radius: 6px;
+    background: none; color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .tab-btn.active { background: var(--surface); color: var(--accent); }
+
+  /* ─── Drop Zone ─── */
+  .drop-zone {
+    border: 2px dashed rgba(0,229,255,0.25);
+    border-radius: 12px; padding: 40px 20px;
+    text-align: center; cursor: pointer;
+    transition: all 0.3s; position: relative;
+    background: rgba(0,229,255,0.02);
+    min-height: 200px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.06);
+  }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+  }
+  .drop-icon { font-size: 36px; }
+  .drop-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+  .drop-sub { font-size: 11px; color: var(--muted); }
+
+  .preview-img {
+    width: 100%; max-height: 200px;
+    object-fit: contain; border-radius: 8px;
+    display: none;
+  }
+
+  .analyze-btn {
+    width: 100%; margin-top: 16px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #000; border: none; border-radius: 8px;
+    padding: 12px; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    letter-spacing: 0.02em;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,255,0.25); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ─── Result display ─── */
+  .result-panel {
+    margin-top: 16px;
+    border-radius: 10px; padding: 16px;
+    display: none;
+  }
+  .result-panel.show { display: block; animation: fadeIn 0.4s ease; }
+  .result-panel.mask-on { background: rgba(0,255,136,0.07); border: 1px solid rgba(0,255,136,0.25); }
+  .result-panel.mask-off { background: rgba(255,59,92,0.07); border: 1px solid rgba(255,59,92,0.25); }
+
+  .result-status {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px; font-weight: 800; margin-bottom: 6px;
+  }
+  .mask-on .result-status { color: var(--green); }
+  .mask-off .result-status { color: var(--red); }
+
+  .result-action { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+  .confidence-bar {
+    height: 6px; background: var(--surface2); border-radius: 100px; overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%; border-radius: 100px; transition: width 0.8s ease;
+  }
+  .mask-on .confidence-fill { background: var(--green); }
+  .mask-off .confidence-fill { background: var(--red); }
+  .conf-label { font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+  /* ─── Camera ─── */
+  .camera-container { position: relative; }
+
+  #cameraFeed {
+    width: 100%; border-radius: 10px;
+    max-height: 220px; object-fit: cover;
+    display: none;
+    border: 1px solid var(--border);
+  }
+
+  .camera-overlay {
+    position: absolute; top: 10px; left: 10px;
+    display: flex; gap: 6px;
+  }
+  .cam-badge {
+    background: rgba(255,0,0,0.9); color: #fff;
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    display: flex; align-items: center; gap: 4px;
+    font-weight: 600;
+  }
+  .cam-badge::before { content:''; width:6px;height:6px;border-radius:50%; background:#fff; animation: pulse 1s infinite; }
+
+  .camera-btns { display: flex; gap: 10px; margin-top: 14px; }
+
+  .cam-btn {
+    flex: 1; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .cam-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .cam-btn.danger { border-color: rgba(255,59,92,0.3); color: var(--red); }
+  .cam-btn.danger:hover { background: rgba(255,59,92,0.1); }
+
+  .cam-placeholder {
+    border: 2px dashed rgba(0,229,255,0.2);
+    border-radius: 10px; padding: 50px 20px;
+    text-align: center; color: var(--muted);
+    font-size: 12px;
+  }
+  .cam-placeholder .big { font-size: 36px; margin-bottom: 10px; }
+
+  /* ─── History ─── */
+  .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-track { background: transparent; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .history-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+  }
+  .history-thumb {
+    width: 36px; height: 36px; border-radius: 6px;
+    object-fit: cover; flex-shrink: 0;
+    background: var(--surface);
+  }
+  .history-info { flex: 1; min-width: 0; }
+  .history-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-time { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .history-badge {
+    font-size: 10px; padding: 3px 8px; border-radius: 100px; flex-shrink: 0;
+    font-weight: 600;
+  }
+  .badge-on { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.25); }
+  .badge-off { background: rgba(255,59,92,0.12); color: var(--red); border: 1px solid rgba(255,59,92,0.25); }
+
+  .empty-history { text-align: center; padding: 30px; color: var(--muted); font-size: 12px; }
+
+  /* ─── Loading spinner ─── */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #000; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  /* ─── Animations ─── */
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Camera result */
+  .cam-result-row {
+    margin-top: 12px;
+    display: none; gap: 10px; align-items: center;
+  }
+  .cam-result-row.show { display: flex; }
+  .cam-result-pill {
+    padding: 8px 16px; border-radius: 100px;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+  }
+  .pill-on { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .pill-off { background: rgba(255,59,92,0.15); color: var(--red); border: 1px solid rgba(255,59,92,0.3); }
+  .cam-conf { font-size: 11px; color: var(--muted); }
+</style>
 </head>
-<body class="p-4 md:p-10">
-    <div class="max-w-6xl mx-auto">
-        <div class="flex justify-between items-center mb-10">
-            <div>
-                <h1 class="text-4xl font-black bg-gradient-to-r from-cyan-400 to-blue-600 bg-clip-text text-transparent italic">MASK-EYE AI</h1>
-                <p class="text-gray-500 font-mono text-sm tracking-widest">ADVANCED ML TEAM 10 // DEPLOYED</p>
-            </div>
-            <div class="flex gap-3">
-                <div class="glass px-4 py-2 rounded-full flex items-center gap-2">
-                    <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-                    <span class="text-xs font-bold">SYSTEM ACTIVE</span>
-                </div>
-            </div>
-        </div>
+<body>
 
-        <div class="grid lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-6">
-                <div class="glass rounded-3xl p-6 overflow-hidden relative">
-                    <div class="flex gap-4 mb-6">
-                        <button id="uploadTab" onclick="switchMode('upload')" class="flex-1 bg-cyan-600 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-500">
-                            <i class="fas fa-upload mr-2"></i> Upload Image
-                        </button>
-                        <button id="cameraTab" onclick="switchMode('camera')" class="flex-1 bg-gray-800 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-600">
-                            <i class="fas fa-video mr-2"></i> Live Camera
-                        </button>
-                    </div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
 
-                    <div id="uploadView" class="border-2 border-dashed border-gray-700 rounded-2xl p-12 text-center hover:border-cyan-500 transition cursor-pointer" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-images text-6xl text-gray-600 mb-4"></i>
-                        <p class="text-gray-400">Drag & drop files or browse</p>
-                        <input type="file" id="fileInput" class="hidden" accept="image/*">
-                    </div>
+<div class="shell">
 
-                    <div id="cameraView" class="hidden relative rounded-2xl overflow-hidden bg-black">
-                        <video id="webcam" autoplay playsinline class="w-full h-[400px] object-cover"></video>
-                        <div class="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse">LIVE FEED</div>
-                    </div>
-
-                    <div id="previewContainer" class="hidden mt-6 rounded-2xl overflow-hidden border border-gray-700">
-                        <img id="imagePreview" class="w-full h-[400px] object-cover">
-                    </div>
-                    <canvas id="canvas" class="hidden"></canvas>
-                </div>
-            </div>
-
-            <div class="space-y-6">
-                <div id="resultCard" class="glass rounded-3xl p-8 border-t-4 border-cyan-500 shadow-xl transition-all duration-500 opacity-30">
-                    <p class="text-gray-500 text-xs font-black tracking-tighter uppercase mb-2">Detection Result</p>
-                    <h2 id="statusText" class="text-5xl font-black mb-2">WAITING...</h2>
-                    <p id="actionText" class="text-gray-400 text-sm italic font-medium">Please provide input feed</p>
-                    
-                    <div class="mt-8">
-                        <div class="flex justify-between text-xs mb-2 font-bold">
-                            <span>CONFIDENCE</span>
-                            <span id="confValue" class="text-cyan-400">0%</span>
-                        </div>
-                        <div class="w-full bg-gray-800 h-2 rounded-full">
-                            <div id="confBar" class="bg-gradient-to-r from-cyan-600 to-blue-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="glass rounded-3xl p-6 space-y-4">
-                    <h3 class="text-sm font-bold text-gray-400 border-b border-gray-800 pb-2 italic">ANALYSIS STATS</h3>
-                    <div class="grid grid-cols-2 gap-4 text-xs">
-                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                            <p class="text-gray-500 mb-1">Latency</p>
-                            <p id="statLatency" class="font-mono text-cyan-400">-- ms</p>
-                        </div>
-                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                            <p class="text-gray-500 mb-1">Resolution</p>
-                            <p id="statRes" class="font-mono">--</p>
-                        </div>
-                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                            <p class="text-gray-500 mb-1">Device</p>
-                            <p id="statDevice" class="font-mono text-xs uppercase">Connecting...</p>
-                        </div>
-                        <div class="bg-black/20 p-3 rounded-xl border border-white/5">
-                            <p class="text-gray-500 mb-1">Model</p>
-                            <p class="font-mono">MobileNetV2</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- ─── Sidebar ─── -->
+  <aside>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      Mask<span>Guard</span>
     </div>
 
-    <script>
-        const fileInput = document.getElementById('fileInput');
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        let isLive = false;
+    <span class="nav-section">Detection</span>
+    <a class="nav-item active" onclick="showPage('detection')">
+      <span class="icon">⚡</span> Live Analysis
+    </a>
+    <a class="nav-item" onclick="showPage('history')">
+      <span class="icon">📋</span> History
+    </a>
 
-        async function switchMode(mode) {
-            document.getElementById('uploadTab').className = mode === 'upload' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
-            document.getElementById('cameraTab').className = mode === 'camera' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
-            
-            if (mode === 'camera') {
-                document.getElementById('uploadView').classList.add('hidden');
-                document.getElementById('cameraView').classList.remove('hidden');
-                document.getElementById('previewContainer').classList.add('hidden');
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    video.srcObject = stream;
-                    isLive = true;
-                    runLiveInference();
-                } catch (err) { alert("Camera Access Denied"); }
-            } else {
-                location.reload(); // Reset for upload mode
-            }
-        }
+    <span class="nav-section">System</span>
+    <a class="nav-item" href="http://localhost:8000/docs" target="_blank">
+      <span class="icon">📡</span> API Docs
+    </a>
+    <a class="nav-item" href="http://localhost:8000/health" target="_blank">
+      <span class="icon">💚</span> Health Check
+    </a>
 
-        fileInput.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('imagePreview').src = URL.createObjectURL(file);
-            document.getElementById('previewContainer').classList.remove('hidden');
-            document.getElementById('uploadView').classList.add('hidden');
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            performInference(formData);
-        };
+    <div class="status-pill">API Connected · port 8000</div>
+  </aside>
 
-        async function runLiveInference() {
-            if (!isLive) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            
-            canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('file', blob, 'frame.jpg');
-                await performInference(formData);
-                setTimeout(runLiveInference, 1000); // 1 Frame per second
-            }, 'image/jpeg');
-        }
+  <!-- ─── Main ─── -->
+  <main>
+    <div class="top-bar">
+      <h1 class="page-title">Face Mask <span>Detection</span></h1>
+      <div class="model-badge">
+        🤖 <strong>MobileNetV2</strong> &nbsp;·&nbsp; 99.9% accuracy
+      </div>
+    </div>
 
-        async function performInference(formData) {
-            const startTime = performance.now();
-            try {
-                const response = await fetch('/predict', { method: 'POST', body: formData });
-                const data = await response.json();
-                const endTime = performance.now();
-                
-                updateUI(data, Math.round(endTime - startTime));
-            } catch (err) { console.error(err); }
-        }
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card c1">
+        <div class="stat-label">Total Scanned</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-sub">images analyzed</div>
+      </div>
+      <div class="stat-card c2">
+        <div class="stat-label">With Mask</div>
+        <div class="stat-value" id="statOn">0</div>
+        <div class="stat-sub">compliant ✓</div>
+      </div>
+      <div class="stat-card c3">
+        <div class="stat-label">No Mask</div>
+        <div class="stat-value" id="statOff">0</div>
+        <div class="stat-sub">non-compliant ✗</div>
+      </div>
+      <div class="stat-card c4">
+        <div class="stat-label">Avg Confidence</div>
+        <div class="stat-value" id="statConf">—</div>
+        <div class="stat-sub">model certainty</div>
+      </div>
+    </div>
 
-        function updateUI(data, latency) {
-            const card = document.getElementById('resultCard');
-            const statusEl = document.getElementById('statusText');
-            
-            card.style.opacity = "1";
-            statusEl.innerText = data.class === "WithMask" ? "SECURED" : "WARNING";
-            statusEl.className = `text-5xl font-black mb-2 ${data.status === 'mask_on' ? 'text-green-400' : 'text-red-500'}`;
-            
-            card.style.borderColor = data.status === 'mask_on' ? '#4ade80' : '#ef4444';
-            document.getElementById('actionText').innerText = data.action;
-            document.getElementById('confBar').style.width = (data.confidence * 100) + '%';
-            document.getElementById('confValue').innerText = (data.confidence * 100).toFixed(2) + '%';
-            
-            // Stats Update
-            document.getElementById('statLatency').innerText = latency + " ms";
-            document.getElementById('statRes').innerText = "224x224 (Input)";
-            document.getElementById('statDevice').innerText = "CPU/Container";
-        }
+    <!-- Detection panels -->
+    <div class="two-col">
 
-        // Fetch Health Data on Load
-        fetch('/health').then(r => r.json()).then(d => {
-            document.getElementById('statDevice').innerText = d.device;
-        });
-    </script>
+      <!-- Upload card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Image Upload</span>
+          <span class="card-tag">drag & drop</span>
+        </div>
+
+        <div class="tab-switcher">
+          <button class="tab-btn active" onclick="switchTab('upload', this)">📁 Upload File</button>
+          <button class="tab-btn" onclick="switchTab('camera', this)">📷 Live Camera</button>
+        </div>
+
+        <!-- Upload tab -->
+        <div id="tab-upload">
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="drop-icon">🖼️</div>
+            <div class="drop-title">Drop image here</div>
+            <div class="drop-sub">JPG, PNG, WEBP · max 10MB</div>
+          </div>
+          <img class="preview-img" id="previewImg" alt="preview">
+
+          <button class="analyze-btn" id="analyzeBtn" onclick="analyzeImage()" disabled>
+            <span class="spinner" id="spinner"></span>
+            <span id="btnText">⚡ Select image first</span>
+          </button>
+
+          <div class="result-panel" id="resultPanel">
+            <div class="result-status" id="resultStatus"></div>
+            <div class="result-action" id="resultAction"></div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" id="confFill" style="width:0%"></div>
+            </div>
+            <div class="conf-label" id="confLabel"></div>
+          </div>
+        </div>
+
+        <!-- Camera tab -->
+        <div id="tab-camera" style="display:none">
+          <div class="cam-placeholder" id="camPlaceholder">
+            <div class="big">📷</div>
+            Click "Start Camera" to begin live detection
+          </div>
+
+          <div class="camera-container" id="cameraContainer">
+            <video id="cameraFeed" autoplay muted playsinline></video>
+            <div class="camera-overlay">
+              <div class="cam-badge" id="liveBadge" style="display:none">LIVE</div>
+            </div>
+          </div>
+
+          <div class="cam-result-row" id="camResultRow">
+            <div class="cam-result-pill" id="camResultPill"></div>
+            <div class="cam-conf" id="camConfText"></div>
+          </div>
+
+          <div class="camera-btns">
+            <button class="cam-btn" id="startCamBtn" onclick="startCamera()">▶ Start Camera</button>
+            <button class="cam-btn" id="captureBtn" onclick="captureAndAnalyze()" disabled>📸 Capture & Analyze</button>
+            <button class="cam-btn danger" id="stopCamBtn" onclick="stopCamera()" disabled>■ Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Scan History</span>
+          <span class="card-tag" id="historyCount">0 scans</span>
+        </div>
+
+        <div class="history-list" id="historyList">
+          <div class="empty-history">No scans yet.<br>Upload or capture an image to begin.</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<canvas id="captureCanvas" style="display:none"></canvas>
+
+<script>
+const API = 'http://localhost:8000';
+let stream = null;
+let history = [];
+let stats = { total:0, on:0, off:0, confSum:0 };
+
+// ─── Tab switching ───
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-upload').style.display = tab==='upload' ? 'block' : 'none';
+  document.getElementById('tab-camera').style.display = tab==='camera' ? 'block' : 'none';
+  if (tab !== 'camera') stopCamera();
+}
+
+// ─── Drag & Drop ───
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const previewImg = document.getElementById('previewImg');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    previewImg.src = ev.target.result;
+    previewImg.style.display = 'block';
+    previewImg.style.marginTop = '12px';
+    previewImg.dataset.file = '';
+    previewImg.dataset.blob = '';
+  };
+  reader.readAsDataURL(file);
+  previewImg._file = file;
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('btnText').textContent = '⚡ Analyze Image';
+  document.getElementById('resultPanel').className = 'result-panel';
+}
+
+// ─── Upload Analysis ───
+async function analyzeImage() {
+  const file = previewImg._file;
+  if (!file) return;
+  setLoading(true);
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API}/predict`, { method:'POST', body: form });
+    if (!res.ok) throw new Error('API error ' + res.status);
+    const data = await res.json();
+    showResult(data, file.name, previewImg.src);
+  } catch(e) {
+    alert('❌ Could not reach API. Make sure Docker is running on port 8000.\n\n' + e.message);
+  }
+  setLoading(false);
+}
+
+function setLoading(on) {
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('btnText').textContent = on ? 'Analyzing...' : '⚡ Analyze Image';
+  document.getElementById('analyzeBtn').disabled = on;
+}
+
+function showResult(data, name, thumb) {
+  const isOn = data.status === 'mask_on' || data.class === 'WithMask';
+  const conf = Math.round((data.confidence || 0) * 100);
+
+  const panel = document.getElementById('resultPanel');
+  panel.className = 'result-panel show ' + (isOn ? 'mask-on' : 'mask-off');
+  document.getElementById('resultStatus').textContent = isOn ? '✅ Mask Detected' : '❌ No Mask';
+  document.getElementById('resultAction').textContent = data.action || (isOn ? 'Allow entry' : 'Entry denied');
+  document.getElementById('confFill').style.width = conf + '%';
+  document.getElementById('confLabel').textContent = `Confidence: ${conf}%`;
+
+  addHistory(name, thumb, isOn, conf);
+  updateStats(isOn, conf);
+}
+
+// ─── Camera ───
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 } });
+    const video = document.getElementById('cameraFeed');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('camPlaceholder').style.display = 'none';
+    document.getElementById('liveBadge').style.display = 'flex';
+    document.getElementById('startCamBtn').disabled = true;
+    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('stopCamBtn').disabled = false;
+  } catch(e) {
+    alert('Camera access denied. Please allow camera permissions.');
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const video = document.getElementById('cameraFeed');
+  video.style.display = 'none';
+  video.srcObject = null;
+  document.getElementById('camPlaceholder').style.display = 'block';
+  document.getElementById('liveBadge').style.display = 'none';
+  document.getElementById('startCamBtn').disabled = false;
+  document.getElementById('captureBtn').disabled = true;
+  document.getElementById('stopCamBtn').disabled = true;
+  document.getElementById('camResultRow').className = 'cam-result-row';
+}
+
+async function captureAndAnalyze() {
+  const video = document.getElementById('cameraFeed');
+  const canvas = document.getElementById('captureCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  canvas.toBlob(async blob => {
+    const file = new File([blob], 'capture.jpg', { type: 'image/jpeg' });
+    const thumb = canvas.toDataURL('image/jpeg', 0.6);
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${API}/predict`, { method:'POST', body: form });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+
+      const isOn = data.status === 'mask_on' || data.class === 'WithMask';
+      const conf = Math.round((data.confidence || 0) * 100);
+
+      const row = document.getElementById('camResultRow');
+      const pill = document.getElementById('camResultPill');
+      row.className = 'cam-result-row show';
+      pill.className = 'cam-result-pill ' + (isOn ? 'pill-on' : 'pill-off');
+      pill.textContent = isOn ? '✅ Mask Detected' : '❌ No Mask';
+      document.getElementById('camConfText').textContent = `Confidence: ${conf}%`;
+
+      addHistory('camera_capture', thumb, isOn, conf);
+      updateStats(isOn, conf);
+    } catch(e) {
+      alert('❌ API error: ' + e.message);
+    }
+  }, 'image/jpeg', 0.9);
+}
+
+// ─── History & Stats ───
+function addHistory(name, thumb, isOn, conf) {
+  const now = new Date().toLocaleTimeString();
+  history.unshift({ name, thumb, isOn, conf, time: now });
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="empty-history">No scans yet.</div>';
+    return;
+  }
+  list.innerHTML = history.slice(0, 20).map(h => `
+    <div class="history-item">
+      <img class="history-thumb" src="${h.thumb}" alt="">
+      <div class="history-info">
+        <div class="history-name">${h.name}</div>
+        <div class="history-time">${h.time} · ${h.conf}% confidence</div>
+      </div>
+      <span class="history-badge ${h.isOn ? 'badge-on' : 'badge-off'}">
+        ${h.isOn ? 'Mask ✓' : 'No Mask ✗'}
+      </span>
+    </div>
+  `).join('');
+  document.getElementById('historyCount').textContent = history.length + ' scans';
+}
+
+function updateStats(isOn, conf) {
+  stats.total++;
+  if (isOn) stats.on++; else stats.off++;
+  stats.confSum += conf;
+  document.getElementById('statTotal').textContent = stats.total;
+  document.getElementById('statOn').textContent = stats.on;
+  document.getElementById('statOff').textContent = stats.off;
+  document.getElementById('statConf').textContent = Math.round(stats.confSum / stats.total) + '%';
+}
+
+function showPage(p) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+}
+</script>
 </body>
 </html>
