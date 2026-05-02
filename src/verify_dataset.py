@@ -4,14 +4,14 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-#  IMPORTANT: adjust if needed
+
 DATA_PATH = "../data"
 
 print(" DATA PATH:", os.path.abspath(DATA_PATH))
 
 
 
-# Helper: count total images
+# count total images
 
 def count_images():
     count = 0
@@ -204,9 +204,6 @@ def final_report(corrupted, blurry, dark, bright):
         print(" High blur detected")
 
 
-# -----------------------------
-# MAIN
-# -----------------------------
 if __name__ == "__main__":
 
     structure_ok = check_structure()
