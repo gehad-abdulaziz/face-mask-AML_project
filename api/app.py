@@ -5,6 +5,8 @@ Role 6: API Developer — Gehad
 
 import io
 import os
+import cv2
+import numpy as np
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
@@ -22,7 +24,6 @@ DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ──────────────────────────────────────────
 # PREPROCESSING (Improved for accuracy)
 # ──────────────────────────────────────────
-# استخدمنا Resize و CenterCrop عشان الصورة متمطش والموديل ميتلخبطش
 preprocess = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
@@ -57,19 +58,19 @@ def load_mask_model(path: str):
     model.eval()
     return model, class_names
 
-# تحميل الموديل عند تشغيل السيرفر
 model, CLASS_NAMES = load_mask_model(MODEL_PATH)
+
+# Load OpenCV Face Detector
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 # ──────────────────────────────────────────
 # FASTAPI APP SETUP
 # ──────────────────────────────────────────
 app = FastAPI(title="Face Mask Detection AI")
 
-# التأكد من وجود فولدر static
 if not os.path.exists("static"):
     os.makedirs("static")
 
-# ربط ملفات الـ CSS/JS والـ HTML (اختياري لو هتحطي ملفات فرعية)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 ACTION_MAP = {
@@ -81,7 +82,6 @@ ACTION_MAP = {
 # ENDPOINTS
 # ──────────────────────────────────────────
 
-# واجهة المستخدم الأساسية (الـ Dashboard الشيك)
 @app.get("/", response_class=HTMLResponse)
 async def home():
     try:
@@ -98,7 +98,7 @@ def health():
         "status"   : "ok",
         "device"   : str(DEVICE),
         "classes"  : CLASS_NAMES,
-        "model"    : "MobileNetV2"  # ضيفي السطر ده بالظبط
+        "model"    : "MobileNetV2" 
     }
 
 @app.post("/predict")
@@ -111,6 +111,35 @@ async def predict(file: UploadFile = File(...)):
         image = Image.open(io.BytesIO(raw)).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Error reading image: {e}")
+
+    # Face Detection and Cropping
+    try:
+        # Convert PIL Image to OpenCV format
+        cv_img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+        
+        # Detect faces
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        
+        if len(faces) > 0:
+            # Find the largest face by area
+            largest_face = max(faces, key=lambda rect: rect[2] * rect[3])
+            x, y, w, h = largest_face
+            
+            # Add a margin around the face (e.g., 20% to avoid cutting off masks)
+            margin_x = int(w * 0.2)
+            margin_y = int(h * 0.2)
+            
+            x1 = max(0, x - margin_x)
+            y1 = max(0, y - margin_y)
+            x2 = min(image.width, x + w + margin_x)
+            y2 = min(image.height, y + h + margin_y)
+            
+            # Crop the face from the original image
+            image = image.crop((x1, y1, x2, y2))
+    except Exception as e:
+        # If face detection fails for any unexpected reason, we fallback to original image
+        print(f"Face detection fallback: {e}")
 
     # Inference
     tensor = preprocess(image).unsqueeze(0).to(DEVICE)
