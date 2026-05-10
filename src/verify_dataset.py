@@ -83,12 +83,12 @@ def check_blur():
         for file in files:
             path = os.path.join(root, file)
 
-            img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+            img = cv2.imread(path, cv2.IMREAD_GRAYSCALE) # read the image & convert it to grayscale
             if img is None:
                 continue
-
-            score = cv2.Laplacian(img, cv2.CV_64F).var()
-            scores.append(score)
+            # laplacian detect edges : fewer edges means blurry image
+            score = cv2.Laplacian(img, cv2.CV_64F).var()  # compute the variance of laplacian values (low variance means weak edges)
+            scores.append(score) # score represent the image sharpness 
             paths.append(path)
 
     if len(scores) == 0:
@@ -97,7 +97,7 @@ def check_blur():
 
     threshold = np.percentile(scores, 20)
 
-    blurry = [p for p, s in zip(paths, scores) if s < threshold]
+    blurry = [p for p, s in zip(paths, scores) if s < threshold] # if score smaller than the threshold -> blurry image
 
     print(f"Blurry images: {len(blurry)}")
     print(f"Threshold used: {threshold:.2f}")
@@ -123,10 +123,10 @@ def check_brightness():
                 continue
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            mean = np.mean(gray)
+            mean = np.mean(gray) # compute average pixel intensity (lower average -> dark, higher average -> bright)
 
             total += 1
-
+            # pixel intensity from 0 to 255
             if mean < 50:
                 dark += 1
             elif mean > 200:
