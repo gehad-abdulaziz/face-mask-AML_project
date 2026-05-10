@@ -299,6 +299,8 @@ pip install torch torchvision fastapi uvicorn python-multipart Pillow scikit-lea
 5. Open a Pull Request to `main`
 
 --
-TEST ON MY GANG
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1c533b68-657c-4676-bb98-7d3fd51808c0" />
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/e59e379d-e67f-45ce-9295-f90e616348c8" />
+TEST ON MY GANG <3
+<img width="1685" height="836" alt="image" src="https://github.com/user-attachments/assets/ddb9481a-3b3e-470c-bd3c-d58dae3d6578" />
+<img width="1651" height="847" alt="image" src="https://github.com/user-attachments/assets/2066231a-eb75-418d-bfab-7aa85cf74da2" />
+<img width="1684" height="862" alt="Screenshot (206)" src="https://github.com/user-attachments/assets/65af85c1-10a6-4e21-8639-6f56be7da4de" />
+
