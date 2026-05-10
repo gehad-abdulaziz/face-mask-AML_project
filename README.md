@@ -297,3 +297,8 @@ pip install torch torchvision fastapi uvicorn python-multipart Pillow scikit-lea
 3. Commit your work: `git commit -m "add: your task description"`
 4. Push: `git push origin feature/your-name`
 5. Open a Pull Request to `main`
+
+--
+TEST ON MY GANG
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1c533b68-657c-4676-bb98-7d3fd51808c0" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/e59e379d-e67f-45ce-9295-f90e616348c8" />
