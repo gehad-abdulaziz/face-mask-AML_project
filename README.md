@@ -27,6 +27,12 @@
 - **Total Images:** ~12,000 real-world face photos
 - **Split:** Train / Validation / Test (pre-organized)
 
+| Split | WithMask | WithoutMask | Total |
+|-------|----------|-------------|-------|
+| Train | 4,982 | 4,983 | 9,965 |
+| Validation | 398 | 400 | 798 |
+| Test | 482 | 506 | 988 |
+
 ---
 
 ## Project Structure
@@ -59,8 +65,12 @@ face-mask-AML_project/
 │   └── test_api.py              # Automated API tests (Gehad)
 │
 ├── docker/
-│   ├── Dockerfile               # Container setup (Fatima)
+│   ├── Dockerfile               # API container (Fatima)
+│   ├── Dockerfile.streamlit     # Streamlit UI container (Fatima)
 │   └── docker-compose.yml       # Full stack deployment (Fatima)
+│
+├── ui/
+│   └── app.py                   # Streamlit UI (Fatima)
 │
 ├── reports/
 │   ├── dataset_report.md        # Class balance + data stats (Jumana)
@@ -78,22 +88,61 @@ face-mask-AML_project/
 
 ## Model
 
-- **Architecture:** MobileNetV2 (Transfer Learning)
+- **Architecture:** MobileNetV2 (Transfer Learning — pretrained on ImageNet)
 - **Framework:** PyTorch + TorchVision
-- **Target Accuracy:** > 90%
 - **Export Format:** `.pth`
+- **Model File Size:** ~13.6 MB
+- **Input Size:** 224 × 224 × 3
 
-Model size :13.6 MB
-Input size: 224×224
-Classifier: Linear(1280→256) → ReLU → Dropout(0.2) → Linear(256→2)
+### Classifier Head
 
-Training/Evaluation Config:
-Max Epochs20 (Phase 1: 10 + Phase 2: 20)
-Batch Size: 32
-Total test images: 988 (482 WithMask + 506 WithoutMask)
+```
+Linear(1280 → 256) → ReLU → Dropout(0.2) → Linear(256 → 2)
+```
 
-Classes: WithMask, WithoutMask
+### Parameters
+
+| | Count |
+|--|--|
+| Total parameters | 2,552,322 |
+| Trainable (Phase 1) | 328,450 (12.9%) |
+| Trainable (Phase 2) | 1,534,530 (60.1%) |
+
+### Training Configuration
+
+| Hyperparameter | Value |
+|----------------|-------|
+| Batch Size | 32 |
+| Max Epochs | 20 (Phase 1: 10 + Phase 2: 20) |
+| Actual Epochs Run | 23 (Early Stopping) |
+| Learning Rate — Phase 1 | 1e-3 |
+| Learning Rate — Phase 2 | 1e-4 |
+| Optimizer | Adam |
+| Loss Function | CrossEntropyLoss |
+| Early Stopping Patience | 4 |
+| Device | CUDA (GPU T4 — Google Colab) |
+
+### Training Strategy
+
+Training was split into two phases:
+
+- **Phase 1 — Head Training:** Base MobileNetV2 layers frozen. Only the custom classifier head is trained for 10 epochs.
+- **Phase 2 — Fine-tuning:** Top layers unfrozen. Full model fine-tuned with a lower learning rate for up to 20 epochs (stopped early at epoch 13).
+
+### Evaluation Results
+
+| Metric | Value |
+|--------|-------|
+| Accuracy | **99.90%** ✅ |
+| Precision | 0.9990 |
+| Recall | 0.9990 |
+| F1-Score | 0.9990 |
+| ROC-AUC | 1.0000 |
+
+> Target accuracy was > 90% — **achieved with a significant margin.**
+
 ---
+
 # Data Augmentation Strategy
 ### Face Mask Detection — Role 3: Augmentation Designer
 
@@ -149,6 +198,7 @@ Each augmentation was carefully selected to simulate a specific real-world condi
 ### 6. `RandomPerspective (distortion_scale=0.2, p=0.2)`
 - **Why:** Simulates different camera angles such as tilted or overhead surveillance cameras.
 - **Why p=0.2 (low probability):** Combined with rotation, higher values would cause over-distortion.
+
 ### 7. `Normalize (mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])`
 - **Why:** MobileNetV2 was pretrained on ImageNet — these are the exact
   mean and std values computed from the ImageNet dataset.
@@ -158,6 +208,7 @@ Each augmentation was carefully selected to simulate a specific real-world condi
   it is a required preprocessing step.
 - Skipping this step would cause the pretrained weights to behave
   unpredictably and degrade accuracy significantly.
+
 ---
 
 ## Implementation
@@ -260,12 +311,34 @@ http://localhost:8000/docs
 ## Docker
 
 ```bash
-# Build and run
-docker-compose up --build
+# Build and run both services
+docker compose -f docker/docker-compose.yml up --build
 
 # Test the API
 python api/test_api.py
 ```
+
+### Docker Containers (2 Microservices)
+
+| Container | Port | Service |
+|-----------|------|---------|
+| `api` | 8000 | FastAPI — inference & prediction |
+| `streamlit` | 8501 | Streamlit — web UI |
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/f337bb48-2f61-40cf-ae5a-b6a27f391a56" />
+
+---
+
+## Test Results
+
+### Single Image Test
+<img width="486" height="817" alt="image" src="https://github.com/user-attachments/assets/a8256896-c909-4fa3-9883-df9be0ca8459" />
+<img width="481" height="745" alt="image" src="https://github.com/user-attachments/assets/406c186c-19ef-441f-982b-915cdd47f818" />
+
+### Gang Test 
+<img width="1685" height="836" alt="image" src="https://github.com/user-attachments/assets/ddb9481a-3b3e-470c-bd3c-d58dae3d6578" />
+<img width="1651" height="847" alt="image" src="https://github.com/user-attachments/assets/2066231a-eb75-418d-bfab-7aa85cf74da2" />
+<img width="1684" height="862" alt="Screenshot (206)" src="https://github.com/user-attachments/assets/65af85c1-10a6-4e21-8639-6f56be7da4de" />
 
 ---
 
@@ -275,6 +348,7 @@ python api/test_api.py
 |------|---------|
 | PyTorch + TorchVision | Model training & transfer learning |
 | FastAPI + Uvicorn | REST API deployment |
+| Streamlit | Interactive web UI |
 | Docker | Containerized deployment |
 | Pillow | Image preprocessing |
 | scikit-learn | Metrics & evaluation |
@@ -295,7 +369,7 @@ python api/test_api.py
 ## Installation
 
 ```bash
-pip install torch torchvision fastapi uvicorn python-multipart Pillow scikit-learn
+pip install torch torchvision fastapi uvicorn python-multipart Pillow scikit-learn streamlit
 ```
 
 ---
@@ -307,20 +381,3 @@ pip install torch torchvision fastapi uvicorn python-multipart Pillow scikit-lea
 3. Commit your work: `git commit -m "add: your task description"`
 4. Push: `git push origin feature/your-name`
 5. Open a Pull Request to `main`
-
---
-DOCKER CONTAINERS : 2
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/f337bb48-2f61-40cf-ae5a-b6a27f391a56" />
-
---
-TEST ON ME : 
-<img width="486" height="817" alt="image" src="https://github.com/user-attachments/assets/a8256896-c909-4fa3-9883-df9be0ca8459" />
-<img width="481" height="745" alt="image" src="https://github.com/user-attachments/assets/406c186c-19ef-441f-982b-915cdd47f818" />
-
-TEST ON MY GANG <3
-<img width="1685" height="836" alt="image" src="https://github.com/user-attachments/assets/ddb9481a-3b3e-470c-bd3c-d58dae3d6578" />
-<img width="1651" height="847" alt="image" src="https://github.com/user-attachments/assets/2066231a-eb75-418d-bfab-7aa85cf74da2" />
-<img width="1684" height="862" alt="Screenshot (206)" src="https://github.com/user-attachments/assets/65af85c1-10a6-4e21-8639-6f56be7da4de" />
-
---
-
