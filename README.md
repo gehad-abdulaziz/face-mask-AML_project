@@ -15,8 +15,8 @@
 | 3 | Augmentation Designer | Ahmed |
 | 4 | Model Trainer | Ghada |
 | 5 | Evaluator | Doha |
-| 6 | API Developer | Gehad |
-| 7 | Deployer & Presenter | Fatima |
+| 6 | API Developer | Gehad & Fatma |
+| 7 | Deployer & Presenter | Fatma & Gehad |
 
 ---
 
@@ -361,7 +361,7 @@ python api/test_api.py
 |------|-----------|---------|
 | 1 | Dataset setup, EDA, Augmentation pipeline | Jumana, Adam, Ahmed |
 | 2 | Model training, evaluation, export .pth | Ghada, Doha |
-| 3 | FastAPI app, Docker, test script | Gehad, Fatima |
+| 3 | FastAPI app, Docker, test script | Gehad, Fatma |
 | 4 | Integration test, presentation, live demo | All |
 
 ---
