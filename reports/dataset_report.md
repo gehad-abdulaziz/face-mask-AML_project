@@ -124,13 +124,13 @@ The following images were removed:
 Automated verification results:
 
 * **Corrupted images:** 0 (0%) 
-* **Blurry images:** 59 (~0.5%) 
+* **Blurry images:** 2,350 (~20%) 
 * **Dark images:** 48 (~0.4%) 
 * **Overexposed images:** 117 (~1%) 
 
 ### Interpretation:
 
-* Blur level is **very low**
+* Blur level is **low**
 * Lighting variation is **healthy and realistic**
 * Dataset maintains **diversity for better model generalization**
 
