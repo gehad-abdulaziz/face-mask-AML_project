@@ -83,6 +83,16 @@ face-mask-AML_project/
 - **Target Accuracy:** > 90%
 - **Export Format:** `.pth`
 
+Model size :13.6 MB
+Input size: 224×224
+Classifier: Linear(1280→256) → ReLU → Dropout(0.2) → Linear(256→2)
+
+Training/Evaluation Config:
+Max Epochs20 (Phase 1: 10 + Phase 2: 20)
+Batch Size: 32
+Total test images: 988 (482 WithMask + 506 WithoutMask)
+
+Classes: WithMask, WithoutMask
 ---
 # Data Augmentation Strategy
 ### Face Mask Detection — Role 3: Augmentation Designer
