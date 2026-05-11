@@ -1,6 +1,6 @@
 """
 Face Mask Detection — FastAPI App
-Role 6: API Developer — Gehad
+Role 6: API Developer — Gehad & Fatma
 """
 
 import io
