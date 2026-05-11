@@ -1,21 +1,34 @@
 # ─────────────────────────────────────────────
 # Face Mask Detection — Docker Compose
-# Role 7: Deployer — Fatima
+# Role 7: Deployer — Gehad
 # ─────────────────────────────────────────────
 
 version: "3.9"
-
 services:
-  mask-api:
+  api:
     build:
-      context: ..           # project root
+      context: ..
       dockerfile: docker/Dockerfile
-    container_name: face-mask-api
     ports:
       - "8000:8000"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    volumes:
+      - ../model:/app/model
+    networks:
+      - mask-network
+
+  streamlit:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    environment:
+      - API_URL=http://api:8000
+    networks:
+      - mask-network
+
+networks:
+  mask-network:
+    driver: bridge
