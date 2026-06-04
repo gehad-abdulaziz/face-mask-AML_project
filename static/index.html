@@ -51,8 +51,8 @@
                         <div class="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse">LIVE FEED</div>
                     </div>
 
-                    <div id="previewContainer" class="hidden mt-6 rounded-2xl overflow-hidden border border-gray-700">
-                        <img id="imagePreview" class="w-full h-[400px] object-cover">
+                    <div id="previewContainer" class="hidden mt-6 rounded-2xl overflow-hidden border border-gray-700 relative">
+                        <canvas id="previewCanvas" class="w-full h-auto max-h-[500px] block object-contain"></canvas>
                     </div>
                     <canvas id="canvas" class="hidden"></canvas>
                 </div>
@@ -72,6 +72,12 @@
                         <div class="w-full bg-gray-800 h-2 rounded-full">
                             <div id="confBar" class="bg-gradient-to-r from-cyan-600 to-blue-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
                         </div>
+                    </div>
+
+                    <!-- Faces list -->
+                    <div id="facesContainer" class="mt-6 hidden">
+                        <p class="text-gray-500 text-xs font-black tracking-tighter uppercase mb-3 text-left">Detected Faces</p>
+                        <div id="facesList" class="space-y-2 max-h-[200px] overflow-y-auto pr-1"></div>
                     </div>
                 </div>
 
@@ -104,23 +110,45 @@
         const fileInput = document.getElementById('fileInput');
         const video = document.getElementById('webcam');
         const canvas = document.getElementById('canvas');
+        const previewCanvas = document.getElementById('previewCanvas');
         let isLive = false;
+        let latestFaces = [];
+        let renderLoopId = null;
+        let isProcessingFrame = false;
+        let uploadedImageObject = null;
 
         async function switchMode(mode) {
-            document.getElementById('uploadTab').className = mode === 'upload' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
-            document.getElementById('cameraTab').className = mode === 'camera' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold';
+            document.getElementById('uploadTab').className = mode === 'upload' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-500' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-600';
+            document.getElementById('cameraTab').className = mode === 'camera' ? 'flex-1 bg-cyan-600 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-500' : 'flex-1 bg-gray-800 py-3 rounded-xl font-bold transition duration-300 hover:bg-cyan-600';
             
             if (mode === 'camera') {
                 document.getElementById('uploadView').classList.add('hidden');
-                document.getElementById('cameraView').classList.remove('hidden');
-                document.getElementById('previewContainer').classList.add('hidden');
+                document.getElementById('cameraView').classList.add('hidden'); // keep video tag hidden
+                document.getElementById('previewContainer').classList.remove('hidden');
+                
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
                     video.srcObject = stream;
                     isLive = true;
-                    runLiveInference();
-                } catch (err) { alert("Camera Access Denied"); }
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        previewCanvas.width = video.videoWidth || 640;
+                        previewCanvas.height = video.videoHeight || 480;
+                        renderWebcamLoop();
+                        runLiveInference();
+                    };
+                } catch (err) { 
+                    alert("Camera Access Denied or webcam not available"); 
+                    console.error(err);
+                }
             } else {
+                isLive = false;
+                if (video.srcObject) {
+                    video.srcObject.getTracks().forEach(t => t.stop());
+                }
+                if (renderLoopId) {
+                    cancelAnimationFrame(renderLoopId);
+                }
                 location.reload(); // Reset for upload mode
             }
         }
@@ -128,54 +156,112 @@
         fileInput.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            document.getElementById('imagePreview').src = URL.createObjectURL(file);
-            document.getElementById('previewContainer').classList.remove('hidden');
-            document.getElementById('uploadView').classList.add('hidden');
+            
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => {
+                uploadedImageObject = img;
+                previewCanvas.width = img.naturalWidth;
+                previewCanvas.height = img.naturalHeight;
+                const ctx = previewCanvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                document.getElementById('previewContainer').classList.remove('hidden');
+                document.getElementById('uploadView').classList.add('hidden');
+                
+                latestFaces = []; // Reset faces
+            };
             
             const formData = new FormData();
             formData.append('file', file);
             performInference(formData);
         };
 
-        async function runLiveInference() {
+        function renderWebcamLoop() {
             if (!isLive) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
             
-            canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('file', blob, 'frame.jpg');
-                await performInference(formData);
-                setTimeout(runLiveInference, 1000); // 1 Frame per second
-            }, 'image/jpeg');
-        }
-        async function sendFrame() {
-            // 1. ارسم فريم الكاميرا على Canvas مخفي
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-
-            // 2. حول الصورة لـ Blob (ملف)
-            canvas.toBlob(async (blob) => {
-                const formData = new FormData();
-                formData.append('file', blob, 'frame.jpg');
-
-                // 3. ابعت للسيرفر
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
+            const ctx = previewCanvas.getContext('2d');
+            if (video.videoWidth > 0) {
+                if (previewCanvas.width !== video.videoWidth || previewCanvas.height !== video.videoHeight) {
+                    previewCanvas.width = video.videoWidth;
+                    previewCanvas.height = video.videoHeight;
+                }
                 
-                // 4. اعرض النتيجة (Allow/Deny) على الشاشة
-                updateUI(result);
-            }, 'image/jpeg');
+                // Draw webcam feed
+                ctx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+                
+                // Draw face bounding boxes
+                drawFaces(ctx, latestFaces, previewCanvas.width);
+            }
+            
+            renderLoopId = requestAnimationFrame(renderWebcamLoop);
         }
 
-        // شغل الفانكشن دي في تكرار (Loop)
-        setInterval(sendFrame, 200);
+        function drawFaces(ctx, faces, width) {
+            faces.forEach(face => {
+                if (face.bbox) {
+                    const bbox = face.bbox;
+                    const isMask = face.status === 'mask_on';
+                    ctx.strokeStyle = isMask ? '#10B981' : '#EF4444'; // green-500 or red-500
+                    ctx.lineWidth = Math.max(3, Math.round(width * 0.005));
+                    ctx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
+                    
+                    // Draw label background
+                    ctx.fillStyle = isMask ? '#10B981' : '#EF4444';
+                    const fontSize = Math.max(12, Math.round(width * 0.025));
+                    ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+                    const text = `${face.class === 'WithMask' ? 'Mask' : 'No Mask'} (${(face.confidence * 100).toFixed(0)}%)`;
+                    const textWidth = ctx.measureText(text).width;
+                    
+                    ctx.fillRect(bbox.x - 2, bbox.y - fontSize - 6, textWidth + 10, fontSize + 8);
+                    
+                    // Draw label text
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillText(text, bbox.x + 3, bbox.y - 4);
+                }
+            });
+        }
+
+        async function runLiveInference() {
+            if (!isLive || isProcessingFrame) return;
+            
+            isProcessingFrame = true;
+            
+            // Create a hidden canvas for capturing the current frame
+            const capCanvas = document.createElement('canvas');
+            capCanvas.width = video.videoWidth || 640;
+            capCanvas.height = video.videoHeight || 480;
+            const ctx = capCanvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            capCanvas.toBlob(async (blob) => {
+                if (blob && isLive) {
+                    const formData = new FormData();
+                    formData.append('file', blob, 'frame.jpg');
+                    
+                    const startTime = performance.now();
+                    try {
+                        const response = await fetch('/predict', { method: 'POST', body: formData });
+                        const data = await response.json();
+                        const endTime = performance.now();
+                        
+                        if (isLive) {
+                            latestFaces = data.results || [];
+                            updateUI(data, Math.round(endTime - startTime));
+                        }
+                    } catch (err) {
+                        console.error("Live inference error:", err);
+                    }
+                }
+                
+                isProcessingFrame = false;
+                
+                if (isLive) {
+                    setTimeout(runLiveInference, 300);
+                }
+            }, 'image/jpeg', 0.8);
+        }
+
         async function performInference(formData) {
             const startTime = performance.now();
             try {
@@ -183,30 +269,82 @@
                 const data = await response.json();
                 const endTime = performance.now();
                 
+                latestFaces = data.results || [];
                 updateUI(data, Math.round(endTime - startTime));
-            } catch (err) { console.error(err); }
+                
+                if (uploadedImageObject) {
+                    const ctx = previewCanvas.getContext('2d');
+                    ctx.drawImage(uploadedImageObject, 0, 0);
+                    drawFaces(ctx, latestFaces, previewCanvas.width);
+                }
+            } catch (err) { 
+                console.error(err); 
+            }
         }
 
         function updateUI(data, latency) {
             const card = document.getElementById('resultCard');
             const statusEl = document.getElementById('statusText');
+            const facesContainer = document.getElementById('facesContainer');
+            const facesList = document.getElementById('facesList');
             
             card.style.opacity = "1";
-            statusEl.innerText = data.class === "WithMask" ? "SECURED" : "WARNING";
-            statusEl.className = `text-5xl font-black mb-2 ${data.status === 'mask_on' ? 'text-green-400' : 'text-red-500'}`;
             
-            card.style.borderColor = data.status === 'mask_on' ? '#4ade80' : '#ef4444';
-            document.getElementById('actionText').innerText = data.action;
-            document.getElementById('confBar').style.width = (data.confidence * 100) + '%';
-            document.getElementById('confValue').innerText = (data.confidence * 100).toFixed(2) + '%';
+            let overallStatus = 'mask_on';
+            let hasFaces = data.results && data.results.length > 0;
             
-            // Stats Update
-            document.getElementById('statLatency').innerText = latency + " ms";
-            document.getElementById('statRes').innerText = "224x224 (Input)";
-            document.getElementById('statDevice').innerText = "CPU/Container";
+            if (hasFaces) {
+                const anyWithoutMask = data.results.some(f => f.status === 'mask_off');
+                overallStatus = anyWithoutMask ? 'mask_off' : 'mask_on';
+            } else {
+                overallStatus = data.status;
+            }
+            
+            statusEl.innerText = overallStatus === "mask_on" ? "SECURED" : "WARNING";
+            statusEl.className = `text-5xl font-black mb-2 ${overallStatus === 'mask_on' ? 'text-green-400' : 'text-red-500'}`;
+            
+            card.style.borderColor = overallStatus === 'mask_on' ? '#4ade80' : '#ef4444';
+            
+            if (hasFaces) {
+                const anyWithoutMask = data.results.some(f => f.status === 'mask_off');
+                document.getElementById('actionText').innerText = anyWithoutMask 
+                    ? "Deny entry ❌ — Please wear a mask" 
+                    : "Allow entry ✅";
+            } else {
+                document.getElementById('actionText').innerText = data.action;
+            }
+            
+            const primaryConf = data.confidence;
+            document.getElementById('confBar').style.width = (primaryConf * 100) + '%';
+            document.getElementById('confValue').innerText = (primaryConf * 100).toFixed(2) + '%';
+            
+            if (hasFaces) {
+                facesContainer.classList.remove('hidden');
+                facesList.innerHTML = data.results.map((face, idx) => {
+                    const isMask = face.status === 'mask_on';
+                    const badgeBg = isMask ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400';
+                    const icon = isMask ? 'fa-circle-check' : 'fa-circle-xmark';
+                    return `
+                        <div class="flex items-center justify-between p-3 rounded-xl border ${badgeBg} glass">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid ${icon}"></i>
+                                <span class="font-bold text-sm">Face #${idx + 1} (${face.class === 'WithMask' ? 'Mask' : 'No Mask'})</span>
+                            </div>
+                            <span class="font-mono text-xs">${(face.confidence * 100).toFixed(0)}% Conf</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                facesContainer.classList.add('hidden');
+                facesList.innerHTML = '';
+            }
+            
+            if (latency) {
+                document.getElementById('statLatency').innerText = latency + " ms";
+            }
+            document.getElementById('statRes').innerText = `${data.faces_detected || 0} Face(s)`;
         }
 
-        // Fetch Health Data on Load
         fetch('/health').then(r => r.json()).then(d => {
             document.getElementById('statDevice').innerText = d.device;
         });
