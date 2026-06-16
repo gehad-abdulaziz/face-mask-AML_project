@@ -1,20 +1,23 @@
+# ─────────────────────────────────────────────
+# Face Mask Detection — Dockerfile (Streamlit UI)
+# Role 7: Deployer — Gehad
+# ─────────────────────────────────────────────
+
 FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
+# Fix Debian sources
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# زيادة الـ timeout لـ 300 ثانية
+# Install Streamlit dependencies
 RUN pip install --no-cache-dir --timeout=300 \
     "streamlit==1.32.0" \
     "requests==2.31.0" \
     "Pillow==10.3.0" \
     "pyarrow==14.0.2"
 
+# Copy UI files
 COPY ui/ ./ui/
 
 EXPOSE 8501
