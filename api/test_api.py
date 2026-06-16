@@ -77,15 +77,26 @@ r = requests.post(
 check("POST /predict — status 200", r.status_code == 200, f"status={r.status_code}")
 
 body = r.json()
-check("POST /predict — has 'status'",     "status"     in body)
-check("POST /predict — has 'action'",     "action"     in body)
-check("POST /predict — has 'confidence'", "confidence" in body)
+check("POST /predict — has 'status'",         "status"         in body)
+check("POST /predict — has 'action'",         "action"         in body)
+check("POST /predict — has 'confidence'",     "confidence"     in body)
+check("POST /predict — has 'class'",          "class"          in body)
+check("POST /predict — has 'faces_detected'", "faces_detected" in body,
+      str(body.get("faces_detected")))
+check("POST /predict — has 'results' list",   isinstance(body.get("results"), list),
+      str(type(body.get("results"))))
 check("POST /predict — valid status value",
       body.get("status") in ("mask_on", "mask_off"),
       body.get("status"))
+check("POST /predict — valid class value",
+      body.get("class") in ("WithMask", "WithoutMask"),
+      body.get("class"))
 check("POST /predict — confidence in [0,1]",
       0.0 <= body.get("confidence", -1) <= 1.0,
       str(body.get("confidence")))
+check("POST /predict — faces_detected is int",
+      isinstance(body.get("faces_detected"), int),
+      str(body.get("faces_detected")))
 
 # ─────────────────────────────────────────────
 # TEST 4 — /predict rejects non-image files
@@ -119,6 +130,38 @@ requests.post(
 )
 elapsed = time.time() - t0
 check("POST /predict — response < 5s (CPU)", elapsed < 5.0, f"{elapsed:.3f}s")
+
+# ─────────────────────────────────────────────
+# TEST 7 — per-face result structure (when faces detected)
+# ─────────────────────────────────────────────
+img_bytes = make_image_bytes()
+r = requests.post(
+    f"{BASE_URL}/predict",
+    files={"file": ("struct.jpg", img_bytes, "image/jpeg")},
+)
+body = r.json()
+results_list = body.get("results", [])
+
+if results_list:
+    first = results_list[0]
+    check("POST /predict — per-face has 'face_id'",
+          "face_id" in first, str(first.get("face_id")))
+    check("POST /predict — per-face has 'bbox'",
+          "bbox" in first and all(k in first["bbox"] for k in ("x", "y", "w", "h")),
+          str(first.get("bbox")))
+    check("POST /predict — per-face has 'status'",
+          first.get("status") in ("mask_on", "mask_off"), first.get("status"))
+    check("POST /predict — per-face has 'class'",
+          first.get("class") in ("WithMask", "WithoutMask"), first.get("class"))
+    check("POST /predict — per-face has 'action'",
+          "action" in first, first.get("action"))
+    check("POST /predict — per-face confidence in [0,1]",
+          0.0 <= first.get("confidence", -1) <= 1.0, str(first.get("confidence")))
+else:
+    # No face detected — check note field exists in primary
+    check("POST /predict — no-face note present",
+          body.get("class") == "WithoutMask" and body.get("confidence") == 0.0,
+          f"class={body.get('class')} conf={body.get('confidence')}")
 
 # ─────────────────────────────────────────────
 # SUMMARY
