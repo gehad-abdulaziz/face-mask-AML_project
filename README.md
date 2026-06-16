@@ -19,20 +19,6 @@
 
 ---
 
-## 👥 The Team
-
-| # | Role | Member(s) |
-|---|------|--------|
-| 1 | **Data Manager** | Jumana |
-| 2 | **EDA & Visualizer** | Adam |
-| 3 | **Augmentation Designer** | Ahmed |
-| 4 | **Model Trainer** | Ghada |
-| 5 | **Evaluator** | Doha |
-| 6 | **API Developer** | Gehad & Fatma |
-| 7 | **Deployer & Presenter** | Fatma & Gehad |
-
----
-
 ## 📊 Dataset & Real-World Adaptations
 
 - **Base Source:** [Face Mask 12K Images Dataset — Kaggle](https://www.kaggle.com/datasets/ashishjangra27/face-mask-12k-images-dataset)
