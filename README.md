@@ -10,6 +10,18 @@
 
 ---
 
+## 👥 The Team
+| # | Role | Member(s) |
+|---|------|--------|
+| 1 | **Data Manager** | Jumana |
+| 2 | **EDA & Visualizer** | Adam |
+| 3 | **Augmentation Designer** | Ahmed |
+| 4 | **Model Trainer** | Ghada |
+| 5 | **Evaluator** | Doha |
+| 6 | **API Developer** | Gehad & Fatma |
+| 7 | **Deployer & Presenter** | Fatma & Gehad |
+---
+
 ## ✨ Key Features & Breakthroughs
 
 - **Diverse Cultural Recognition:** Model augmented with **Hijab and Niqab** images to ensure high accuracy across diverse demographics.
