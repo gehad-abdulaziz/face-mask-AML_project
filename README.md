@@ -110,7 +110,7 @@ uvicorn api.app:app --reload --port 8000
 
 ### "Gang" Test (Multi-Face Detection via RetinaFace)
 <img width="1228" height="672" alt="image" src="https://github.com/user-attachments/assets/a7152e30-97b2-4df6-8e27-474c5ed4e7ce" />
-![Uploading image.png…]()
+<img width="1235" height="613" alt="image" src="https://github.com/user-attachments/assets/bf33ce8a-80c3-48f8-b226-41c2abf3a94c" />
 
 
 ---
